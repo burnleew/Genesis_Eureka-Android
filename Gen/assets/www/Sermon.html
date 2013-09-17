@@ -1,0 +1,451 @@
+<!DOCTYPE HTML>
+
+<head>
+  <link rel="image_src" href="images/loading2.gif" / >
+  <script language="JavaScript" type="text/javascript" src="js/libs/xui.js"></script>
+  <script type="text/javascript" charset="utf-8" src="cordova-2.3.0.js"></script>
+  <meta charset="utf-8">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="css/NU.css" rel="stylesheet" type="text/css" />
+  <title>Genesis</title>
+</head>
+	<body onLoad="onloadme();" onUnload="clear();">
+        <h1>Sermon Detail</h1>
+        <!--<img src="https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcS4hlDDEnpsgZV1PIH-o_r7Ignj1sN05FDiycKvxn4ftXcThPy4" style="max-width:100%;width:100%;" />-->
+        <div id="progress" style="display:none;">Loading...<br/><img src="images/loading2.gif" alt=""/><br/><br/></div>
+        <div id="btnHome" class="btnTopLeft  btnTopRightLeft"
+            ontouchend="x$('#btnHome').removeClass('btnHome_active');"
+            ontouchstart="x$('#btnHome').addClass('btnHome_active');" >&nbsp;</div>
+        
+        <div id="sermon"></div>
+        
+        
+        
+        <div id="sermonInfoContainer" style="clear:both;margin:15px 10px 15px 0px;">
+        	<div class="date_container floatLeft" style="padding-left:5px;">
+    		  	<div class="date_month" id="div_date_month">Sep</div>
+    		  	<div class="date_day" id="div_date_day">15</div>
+    		  	<div class="date_year" id="div_date_year">2013</div>
+    		</div>
+    		<div class="bar"></div>
+        	<div class="sermonPage_container">
+	        	<div class="sermonPage_title" id="title"></div>
+    	    	<div class="sermonPage_series secondaryText" id="series"></div>
+    	    	<div class="sermonPage_series secondaryText" id="speaker"></div>
+    	    </div>
+       	 	
+    	</div>
+    	<div class="audioBtn_container">
+			<div id="Download"
+        		class="mainbtn floatRight audioBtn green" 
+        		ontouchend  ="x$('#Download').removeClass('mainbtn_TouchStart');" 
+        	    ontouchstart="x$('#Download').addClass('mainbtn_TouchStart');">
+        	       <img id="imgdownload" src="images/download.png" style="max-width:100%;" />
+        	</div>
+        	
+			<div id="Play" 
+        		 class="mainbtn floatLeft audioBtn green" 
+        	     ontouchend  ="x$('#Play').removeClass('mainbtn_TouchStart');" 
+        	     ontouchstart="x$('#Play').addClass('mainbtn_TouchStart');">
+        	       <img id="imgplay" src="images/play.png" style="max-width:100%;" />
+        	</div>
+            
+            <div id="Stop" 
+        		 class="mainbtn floatLeft audioBtn green"
+        	     ontouchend  ="x$('#Stop').removeClass('mainbtn_TouchStart');" 
+        	     ontouchstart="x$('#Stop').addClass('mainbtn_TouchStart');">
+        	       <img id="imgstop" src="images/stop.png" style="max-width:100%;" />
+        	</div>
+
+        </div>
+        
+        <div class="audio_container">
+          <div class="slider_container">
+		    <dl>
+		
+		    <dd><div id="gslider" class="slider"><div id="slider_green" class="slider_green green">&nbsp;</div></div>
+		    </dd>
+		    
+		
+		    </dl>
+		  </div>
+		  <div id="audio_position" class="audio_position"></div>
+		</div>
+    		
+    	<div id="download_counter" style="display:none;">
+    		<div class="pct_complete" style="height:15px;width:100%;text-align:center;">Loading...</div>
+    	</div>
+   		<br/>
+	   	<div style="clear:both;padding:5px;" id="content"></div>
+   
+   
+<script language="JavaScript" type="text/javascript" src="js/mylibs/helper.js"></script>
+<script language="JavaScript" type="text/javascript" src="js/NU.js"></script>
+<script language="JavaScript" type="text/javascript" src="js/libs/json2.js"></script>
+<script charset="utf-8" type="text/javascript">
+
+
+var mySermonId;
+var preLink = "";
+var mp3Link = "";
+var fileSystem;
+var DATADIR;
+var mySeriesId;
+
+function onloadme(){
+	document.addEventListener("deviceready", onDeviceReady, false);
+}
+
+function onDeviceReady() {
+  
+  mySermonId = getQuerystring('SermonId','');
+  mySeriesId = getQuerystring('SeriesId','');
+  
+  if (checkConnection())
+{  
+  //var Sermons = localStorage.getItem("Sermons");
+  x$('#imgplay').attr('src','images/play.png');
+ 
+  LoadIt(mySermonId);
+  
+  //window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
+  //window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, gotFS, failFS);
+  
+  window.requestFileSystem(LocalFileSystem.PERSISTENT, 0,
+  	function(fs) {
+  		fileSystem = fs;
+  		fileSystem.root.getDirectory("Music", {create:false, exclusive:false},gotDir,errorDir);
+  	},
+  	function(e) {
+  		alert(JSON.stringify(e));
+  	}
+  );
+  		
+}
+}
+
+
+function failFS() {
+	console.log("failed to get filesystem");
+}
+function gotFS(fileSystem) {
+	console.log("got fs");
+	window.rootFS = fileSystem.root;
+}
+
+function gotDir(d) {
+	DATADIR = d;
+}
+function errorDir(e) {
+	console.log("ERROR - getting directory");
+	console.log(JSON.stringify(e));
+}
+
+(function(d){
+    // IE compatibility stuff :-(
+    var addListener = (function(w) {
+        return w.addEventListener
+            ? function(el, type, fn) { el.addEventListener(type, fn, false) }
+            : w.attachEvent
+            ? function(el, type, fn) { el.attachEvent('on'+type, fn) }
+            : function(el, type, fn) { el['on'+type] = fn };
+    })(window);
+    var delListener = (function(w) {
+        return w.removeEventListener
+            ? function(el, type, fn) { el.removeEventListener(type, fn, false) }
+            : w.detachEvent
+            ? function(el, type, fn) { el.detachEvent('on'+type, fn) }
+            : function(el, type, fn) { delete el['on'+type] };
+    })(window);
+    var preventDefault = function(ev) { 
+        if (ev.preventDefault) ev.preventDefault();
+        else                   ev.returnValue = false;
+    };
+    // https://developer.mozilla.org/ja/JavaScript/Reference/Global_Objects/Array/map
+    if (!Array.prototype.map) Array.prototype.map = function(fun /*, thisp*/) {
+        var len = this.length;
+        if (typeof fun != "function") throw new TypeError();
+        var res = new Array(len);
+        var thisp = arguments[1];
+        for (var i = 0; i < len; i++) {
+          if (i in this) res[i] = fun.call(thisp, this[i], i, this);
+        }
+        return res;
+    };
+    var addSliderEvents = function(me, cb){
+        var move, mdown, mmove, mup, tstart, tmove, tend;
+        move = function(clientX, rect){
+            var width = clientX - rect.left,
+                max = rect.right - rect.left; // width nonexistent on IE
+            width = width < 0 ? 0 : max < width ? max : width;
+            me.firstChild.style.width = width + 'px';
+            cb(me, me.firstChild.style.width = width, max);
+        };
+        mdown = function(ev){
+            addListener(d, 'mousemove', mmove);
+            addListener(d, 'mouseup', mup);
+            mmove(ev);
+        };
+        mmove = function(ev){
+           move(ev.clientX, me.getBoundingClientRect());
+           preventDefault(ev);
+        };
+        mup = function(ev){
+            delListener(d, 'mousemove', mmove);
+            delListener(d, 'mousedown', mup);
+        };
+        addListener(me, 'mousedown', mdown);
+        
+        tstart = function(ev){
+            addListener(d, 'touchmove', tmove);
+            addListener(d, 'touchend', tend);
+            tmove(ev);
+        }
+        tmove = function(ev){
+            move(ev.touches[0].clientX, me.getBoundingClientRect());
+            preventDefault(ev);
+        };        
+        tend = function(ev){
+            delListener(d, 'touchmove', tmove);
+            delListener(d, 'touchend', tend);
+        };
+        addListener(me, 'touchstart', tstart);
+    };
+
+    var $ = function(){ return d.getElementById.apply(d, arguments) };
+    var rgb = {r:192,g:128,b:64};
+    var changecolor = function(el, width, max){
+    	//my_media.seekTo(milliseconds);
+    	my_media.seekTo(Math.round((width / max) * totalDur * 1000));
+        //var dst = $('rgb');
+        //dst.innerHTML = 'rgb(' + [
+        //    width/max, Math.round((width / max) * totalDur), totalDur
+        //].join(',') +  ')';
+    };
+    ['g'].map(function(c){
+        addSliderEvents(d.getElementById(c + 'slider'), changecolor)
+    });
+})(document);
+
+
+
+
+
+
+
+function clear(){
+  stopAudio();
+}
+
+function LoadIt(mySermonId) {
+  navigator.notification.activityStart('Genesis','Loading...');
+  x$(window).xhr('http://genesiseureka.com/api/sermons/?id=' + mySermonId, {
+    async: true,
+    method: "get",   
+    callback: function(){
+      parseIt(this.responseText);
+      //localStorage.setItem("Sermons",this.responseText); // TODO: lazy load all sermons and store in localstorage?
+    }
+  });
+}
+
+
+function parseIt(response) {
+	var monthNames = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+	var j = JSON.parse(response);
+	var sermon = j[0];
+    
+    var myDate = new Date(parseFloat(sermon.date)*1000);
+    var myURL = sermon.audio.download;
+
+    
+	x$('#content').html(sermon.description);
+	x$('#title').html(sermon.title);
+	x$('#div_date_month').html(monthNames[myDate.getMonth()] );
+	x$('#div_date_day').html(myDate.getDate());
+	x$('#div_date_year').html(myDate.getFullYear());
+	x$('#series').html('<i>From the Series: ' + sermon.series.title + '</i>');
+	x$('#speaker').html('<i>' + sermon.speaker + '</i>');
+    	
+  checkConnection();
+  new MBP.fastButton(document.getElementById("Play"), function() {playAudio();});
+  new MBP.fastButton(document.getElementById("Stop"), function() {stopAudio();});
+  new MBP.fastButton(document.getElementById("Download"), function() {downloadFile();});
+  navigator.notification.activityStop();
+  
+  my_media_url = myURL;
+  
+  my_media = new Media(
+  		my_media_url,
+        
+        // success callback
+        function() {
+            console.log("playAudio():Audio Success");
+        },
+        
+        // error callback
+        function(err) {
+            console.log("playAudio():Audio Error: "+err);
+        }
+    );
+  //if (!navigator.onLine) { 
+  //  alert("You appear to be offline.  Please try your request again later.");
+  //  x$('#progress').setStyle('display','none');
+  //  return false;
+  //}
+
+
+  
+}
+
+
+
+var my_media;
+var my_media_url;
+var mediaTimer = null;
+var playing = false;
+var totalDur = -1;
+
+function playAudio() {
+    
+	if (!playing) {
+		if (totalDur === -1)  // If the total duration has not been set, that means the file hasn't been loaded.  Show the loader for the first time the file is loaded only; otherwise each time the user pauses & plays, the loader will show and will not go away because the stop activity won't be hit since the totalDur is already set.
+			navigator.notification.activityStart('Genesis','Loading audio...');
+		my_media.play();
+		x$('#imgplay').attr('src','images/pause.png');
+		playing = true;
+		x$('.audio_container').setStyle('display','block');
+		setupDurationTracker();
+	}
+	else {
+		my_media.pause();
+		x$('#imgplay').attr('src','images/play.png');
+		playing = false;
+	}
+
+    
+   if (mediaTimer == null) {
+   				
+                mediaTimer = setInterval(function() {
+                    // get my_media position
+                    my_media.getCurrentPosition(
+                        // success callback
+                        function(position) {
+                            if (position > -1) {
+                                setAudioPosition(position);
+                            }
+                            else{
+                            	x$('#imgplay').attr('src','images/play.png');
+                            }
+                        },
+                        // error callback
+                        function(e) {
+                            console.log("Error getting pos=" + e);
+                            setAudioPosition("Error: " + e);
+                        }
+                    );
+                }, 1000);
+            }
+
+    
+}
+
+
+
+
+
+function setupDurationTracker(){
+	var dur = my_media.getDuration();
+	
+	if (dur != -1){
+		navigator.notification.activityStop();
+		totalDur = dur;
+	}
+	else {
+		setTimeout(setupDurationTracker, 1000);
+	}
+}
+
+
+function setAudioPosition(position) {
+	
+	document.getElementById('audio_position').innerHTML = toHHMMSS(position);
+	var myPct = 100.0 * position / totalDur;
+	myPct = myPct.toString() + '%';
+	//alert(myPct);
+	x$('#slider_green').setStyle('width',myPct);
+}
+
+function stopAudio() {
+       
+            if (my_media) {
+                my_media.stop();
+                x$('#imgplay').attr('src','images/play.png');
+                x$('.audio_container').setStyle('display','none');
+                playing = false;
+                document.getElementById('audio_position').innerHTML = toHHMMSS(0);
+            }
+            clearInterval(mediaTimer);
+            mediaTimer = null;
+}
+
+
+function downloadFile() {
+	var fileTransfer = new FileTransfer();
+
+	var uri = encodeURI(my_media_url);
+	var localFileName = my_media_url.substring(my_media_url.lastIndexOf('/')+1);
+
+	x$('#download_counter').setStyle('display','block');
+	var i = 0;
+	
+	fileTransfer.onprogress = function(progressEvent) {
+		
+		if (progressEvent.lengthComputable) {
+			var perc = Math.floor(progressEvent.loaded / progressEvent.total * 100.0);
+			x$('.pct_complete').html(perc + '% downloaded...');
+		}
+		else {
+			if (x$('.pct_complete').html() == "Loading..."){
+				x$('.pct_complete').html('Loading');}
+			else {
+				x$('.pct_complete').html() += '.';
+				}
+		}
+	
+	};
+	
+//	window.rootFS.fullPath + '/' + localFileName,
+
+//fileSystem.root.fullPath + '/' + localFileName,
+
+	var myPath;
+	if (DATADIR)
+		myPath = DATADIR.fullPath + "/" + localFileName;
+	else
+		myPath = fileSystem.root.fullPath + '/' + localFileName;
+		
+	fileTransfer.download(
+		uri,
+		myPath,
+		function(entry) {
+			console.log("download complete: " + entry.fullPath);
+		},
+		function(error) {alert('err' + ': ' + error.source + ' ' + error.target + ' ' + error.code);
+			console.log("download error source " + error.source);
+			console.log("download error target " + error.target);
+			console.log("upload error code " + error.code);
+		}
+	);
+
+}
+
+
+    new MBP.fastButton(document.getElementById("btnHome" ), function() { redirect('Sermons.html?SeriesId=' + mySeriesId);return false;  });
+
+</script>
+</html>

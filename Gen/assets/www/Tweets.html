@@ -1,0 +1,191 @@
+<html manifest="default.appcache?v=1" class="no-js"> <![endif]-->
+<!--[if (gt IEMobile 7)|!(IEMobile)]><!--> <html class="no-js" manifest="default.appcache?v=1"> <!--<![endif]-->
+
+<head>
+  <link rel="image_src" href="images/loading2.gif" / >
+  <meta charset="utf-8">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script language="JavaScript" type="text/javascript" src="js/libs/xui.js"></script>
+  <script type="text/javascript" charset="utf-8" src="cordova-2.3.0.js"></script>
+  <link href="css/NU.css" rel="stylesheet" type="text/css" />
+  <title>NU Tweets</title>
+
+
+    <body  onload="onloadme();">
+    <style type="text/css">
+    
+  
+    #progress{
+        top: 50%;
+    }
+    
+    </style>
+    <h1 class="no_bottom_border">Tweets</h1>
+
+    <div id="tweets"></div>
+    <div id="progress" style="display:none;">Loading...<br/><img src="images/loading2.gif" alt=""/><br/><br/></div>
+    <div id="btnHome" class="btnTopLeft  btnTopRightLeft"
+            ontouchend="x$('#btnHome').removeClass('btnHome_active');"
+            ontouchstart="x$('#btnHome').addClass('btnHome_active');" >&nbsp;</div>
+    
+    <div align="center">
+        <div id="Play" class="mainbtn hide_on_load green" >
+              Load More
+        </div>
+    </div>
+    
+    <script src="js/NU.js"></script>
+    <script src="js/libs/json2.js"></script>
+	<script src="js/mylibs/helper.js"></script>
+    
+    <script type="text/javascript">
+    var pageNumber = 1;
+    var maxID = -1;
+    
+    function onloadme(){
+        document.addEventListener("deviceready", onDeviceReady, false);
+    }
+
+    function onDeviceReady() {
+    	document.addEventListener("menubutton", showAlertTweets, false);
+    	if (checkConnection())
+	        LoadIt();
+    }
+	
+	new MBP.fastButton(document.getElementById("Play" ),    function() { document.getElementById('Play').innerHTML='Loading...';LoadIt();  });
+    new MBP.fastButton(document.getElementById("btnHome" ),    function() { redirect('index.html');return false;  });
+    
+    
+    function showAlertTweets() {
+        navigator.notification.alert(
+            "Tap the Load More button at the bottom for more Tweets.  Sorry, these are read only; no posting to Twitter available at this time.",
+            k,
+            'Tip:',
+            'Close'
+        );
+    }
+    function parseTwitterDate($stamp)
+    {   
+        // convert to local string and remove seconds and year //
+		var date = new Date(Date.parse($stamp)).toLocaleString();
+		
+		// get the two digit hour //
+		var hour = date.substr(16, 2);
+        
+        // convert to AM or PM //
+		var ampm = hour<12 ? ' AM' : ' PM';
+		if (hour>12) hour-= 12;
+		if (hour==0) hour = 12;
+        
+        // return the formatted string //
+		return date.substr(4, 6)+' &bull; ' + hour + ':' + date.substr(19,2) + ampm;
+    }
+    
+	// Convert URLs (w/ or w/o protocol), @mentions, and #hashtags into anchor links
+	function twitterLinks(text)
+	{
+    	var base_url = 'http://twitter.com/';   // identica: 'http://identi.ca/'
+    	var hashtag_part = 'search?q=';        // identica: 'tag/'
+    	var mention_part = '';              // identica: ''
+    	// convert URLs into links
+    	text = text.replace(
+        	/(>|<a[^<>]+href=['"])?(https?:\/\/([-a-z0-9]+\.)+[a-z]{2,5}(\/[-a-z0-9!#()\/?&.,]*[^ !#?().,])?)/gi,
+        	function($0, $1, $2) {
+            	return ($1 ? $0 : '<a href="javascript:doLink(\'' + $2 + '\');" target="_blank">' + $2 + '</a>');
+        	});
+    	
+    	// convert protocol-less URLs into links       
+    	text = text.replace(
+        	/(:\/\/|>)?\b(([-a-z0-9]+\.)+[a-z]{2,5}(\/[-a-z0-9!#()\/?&.]*[^ !#?().,])?)/gi,
+        	function($0, $1, $2) {
+            	return ($1 ? $0 : '<a href="javascript:doLink(\'http://' + $2 + '\');">' + $2 + '</a>');
+       	 	});
+      
+      	// convert @mentions into follow links
+      	text = text.replace(
+        	/(:\/\/|>)?(@([_a-z0-9\-]+))/gi,
+        	function($0, $1, $2, $3) {
+            	return ($1 ? $0 : '<a href="javascript:doLink(\'' + base_url + mention_part + $3
+               	 	+ '\');" title="Follow ' + $3 + '" target="_blank">@' + $3
+                	+ '</a>');
+        	});
+      
+      	// convert #hashtags into tag search links
+      	text = text.replace(
+        	/(:\/\/[^ <]*|>)?(\#([_a-z0-9\-]+))/gi,
+        	function($0, $1, $2, $3) {
+            	return ($1 ? $0 : '<a href="javascript:doLink(\'' + base_url + hashtag_part + $3
+                	+ '\');" title="Search tag: ' + $3 + '" target="_blank">#' + $3
+                	+ '</a>');
+        	});
+      	return text;
+    }
+
+    function ptweet(read)
+    {
+        read = JSON.parse(read);
+        var tdata='';
+        
+        for (i in read)
+        {
+          data =read[i];
+          var id=data.id;
+          if (maxID == id) {
+              continue;  //skip out of loop to next if first tweet of next series is the same as the last of the previous series
+          }
+          
+          maxID = id;
+          var text=twitterLinks(data.text);
+          var created_time=parseTwitterDate(data.created_at);
+          var screen_name=data.user.screen_name;
+          var image=data.user.profile_image_url;
+          var source=data.source;
+          
+          tdata+="<div class='status' id='"+id+"'><img src="+image+" class='twitter_image'/><a class='screenname' href='javascript:doLink(\"http://twitter.com/"+screen_name+"\");'>"+screen_name+"</a><div class='font_11 secondaryText'><span class='secondaryText'>" + created_time + "</span></div><div class='font_13'>"+text+"</div></div>";
+
+        }
+        
+        document.getElementById("tweets").innerHTML += tdata;
+        //document.getElementById('progress').style.display='none';
+        navigator.notification.activityStop();
+        document.getElementById('Play').style.display='block';
+        document.getElementById('Play').innerHTML = 'Load More';
+    }
+
+
+	function LoadIt() {
+		myList = getQuerystring('ListID', '84420904');
+	    //document.getElementById('progress').style.display='block';
+	    navigator.notification.activityStart('Genesis','Loading...');
+   		var myURL='';
+   
+   		if (maxID == -1)
+     		myURL = 'http://www.chupetunes.com/TwitterSVC_Genesis.php?list_id=' + myList + '&count=50';
+   		else
+     		myURL = 'http://www.chupetunes.com/TwitterSVC_Genesis.php?list_id=' + myList + '&count=50&max_id=' + maxID;
+   
+
+ 
+   		x$(window).xhr(myURL, {
+     		//async: true,
+     		method: "get",  
+     		callback: function(){
+       			ptweet(this.responseText);
+     		},
+     		error: function(){
+     			alert("Looks like we've hit the request rate limit at Twitter.  Please try your request again later.  Genesis is working to bring you a better Tweets experience, so stay tuned!");
+     		}    
+  		});
+  		
+  		pageNumber++;
+	}
+	
+	
+    </script>
+
+    </body>
+    </html>
